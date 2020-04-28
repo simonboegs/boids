@@ -5,20 +5,30 @@ var height = 600;
 var frameRate = 60;
 
 async function update(state) {
-    var range = 50;
+    var range = document.getElementById("rangeInput").value;
+    var angleOfSight = (3 / 4) * Math.PI;
     // var repelConst = 2;
     // var cohesionConst = 0.1;
     // var velMatchConst = 0.5;
     var repelConst = document.getElementById("repelConstInput").value;
+    var avoidConst = 1;
     var cohesionConst =
         document.getElementById("cohesionConstInput").value / 10;
     var velMatchConst =
         document.getElementById("velMatchConstInput").value / 10;
     var border = 100;
+    //var minSpeed = document.getElementById("minSpeedInput");
     var minSpeed = 1;
+    var maxSpeed = document.getElementById("maxSpeedInput");
     boids = state.boids;
     await boids.forEach(async (boid) => {
-        var localBoids = await getLocalBoids(boid, boids, range);
+        var localBoids = await getLocalBoids(boid, boids, range, angleOfSight);
+        var localObstacles = getLocalObstacles(boid, state.obstacles, range);
+        if (localObstacles.length > 0) {
+            var avoid = getAvoid(boid, localObstacles, avoidConst);
+            boid.vel[0] += avoid[0];
+            boid.vel[1] += avoid[1];
+        }
         if (localBoids.length > 0) {
             var repel = await getRepel(boid, localBoids, repelConst);
             var cohesion = await getCohesion(boid, localBoids, cohesionConst);
@@ -30,6 +40,8 @@ async function update(state) {
         var velMag = distance([0, 0], boid.vel);
         if (velMag < minSpeed)
             boid.vel = convert(minSpeed, boid.direction, [0, 0]);
+        else if (velMag > maxSpeed)
+            boid.vel = convert(maxSpeed, boid.direction, [0, 0]);
     });
 
     await boids.forEach((boid) => {
@@ -47,10 +59,15 @@ async function update(state) {
 }
 
 async function render(state) {
-    boids = state.boids;
     ctx.fillStyle = "#545454";
     await ctx.fillRect(0, 0, width, height);
-    boids.forEach(async (boid) => {
+    state.obstacles.forEach((obs) => {
+        ctx.beginPath();
+        ctx.arc(obs.pos[0], obs.pos[1], obs.radius, 0, 2 * Math.PI);
+        ctx.strokeStyle = obs.color;
+        ctx.stroke();
+    });
+    state.boids.forEach(async (boid) => {
         var triCords = await getTriCords(boid);
         ctx.beginPath();
         ctx.moveTo(Math.round(triCords[0][0]), Math.round(triCords[0][1]));
@@ -92,9 +109,17 @@ function createBoid(pos, vel, color) {
     obj.pos = pos;
     obj.vel = vel;
     obj.color = color;
-    obj.width = 10;
-    obj.height = 20;
+    obj.width = 5;
+    obj.height = 10;
     obj.direction = getDirection(vel);
+    return obj;
+}
+
+function createObstacle(pos, radius, color) {
+    const obj = {};
+    obj.pos = pos;
+    obj.radius = radius;
+    obj.color = color;
     return obj;
 }
 
@@ -106,16 +131,37 @@ function getDirection(vel) {
     else if (vel[0] > 0 && vel[1] < 0) return 2 * Math.PI - a;
 }
 
-async function getLocalBoids(boid, boids, range) {
+async function getLocalBoids(boid, boids, range, angleOfSight) {
     var localBoids = [];
     await boids.forEach((b) => {
         var dist = Math.sqrt(
             Math.pow(boid.pos[0] - b.pos[0], 2) +
                 Math.pow(boid.pos[1] - b.pos[1], 2)
         );
-        if (dist <= range && b != boid) localBoids.push(b);
+        if (dist <= range && b != boid) {
+            localBoids.push(b);
+            // var angle = Math.abs(boid.direction - getAngle(boid.pos, b.pos));
+            // if (angle <= angleOfSight) localBoids.push(b);
+        }
     });
     return localBoids;
+}
+
+function getLocalObstacles(boid, obstacles, range) {
+    var localObs = [];
+    obstacles.forEach((obs) => {
+        var dist =
+            Math.sqrt(
+                Math.pow(boid.pos[0] - obs.pos[0], 2) +
+                    Math.pow(boid.pos[1] - obs.pos[1], 2)
+            ) - obs.radius;
+        if (dist < 0) state.boids.splice(state.boids.indexOf(boid), 1);
+        if (dist <= range) {
+            localObs.push(obs);
+            console.log(dist);
+        }
+    });
+    return localObs;
 }
 
 async function getRepel(boid, localBoids, repelConst) {
@@ -142,6 +188,20 @@ function velocityMatch(boid, localBoids, velMatchConst) {
     var avgVel = getAvgVelocity(localBoids);
     var diff = [avgVel[0] - boid.vel[0], avgVel[1] - boid.vel[1]];
     return [diff[0] * velMatchConst, diff[1] * velMatchConst];
+}
+
+function getAvoid(boid, localObs, avoidConst) {
+    var avoidX = 0;
+    var avoidY = 0;
+    localObs.forEach((obs) => {
+        var avoidForce =
+            avoidConst / (distance(boid.pos, obs.pos) - obs.radius);
+        var avoidDirection = getAngle(obs.pos, boid.pos);
+        var avoid = convert(avoidForce, avoidDirection, [0, 0]);
+        avoidX += avoid[0];
+        avoidY += avoid[1];
+    });
+    return [avoidX, avoidY];
 }
 
 function getAvgPosition(boids) {
@@ -198,10 +258,14 @@ function getUnitVector(pos) {
     return [pos[0] / magnitude, pos[1] / magnitude];
 }
 
+var game;
+var state = {};
+var running;
 function startGame() {
-    var state = {};
+    state = {};
     var boids = [];
-    numOfBoids = 100;
+    var obstacles = [createObstacle([200, 200], 50, "#ffff00")];
+    numOfBoids = 200;
     var pos = [0, 0];
     var vel = [0, 0];
     var color = "#ffffff";
@@ -213,10 +277,45 @@ function startGame() {
         boids.push(createBoid(pos, vel, color));
     }
     state.boids = boids;
-    setInterval(async function () {
+    state.obstacles = obstacles;
+    running = true;
+    game = setInterval(async function () {
         state = await update(state);
         render(state);
     }, 1000 / frameRate);
 }
+
+function resetGame() {
+    clearInterval(game);
+    startGame();
+}
+
+function freeze() {
+    if (running) {
+        clearInterval(game);
+        running = false;
+    }
+}
+
+function unfreeze() {
+    if (!running) {
+        running = true;
+        game = setInterval(async function () {
+            state = await update(state);
+            render(state);
+        }, 1000 / frameRate);
+    }
+}
+
+document.getElementById("world").addEventListener(
+    "click",
+    function (event) {
+        var pos = [event.pageX, event.pageY];
+        var vel = [randomDec(-1, 1), randomDec(-1, 1)];
+        var color = "#ff8585";
+        state.boids.push(createBoid(pos, vel, color));
+    },
+    false
+);
 
 startGame();

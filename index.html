@@ -6,7 +6,7 @@
     <body>
         <canvas id="world" width="600" height="600"></canvas>
         <div>
-            <label>Repel: </label>
+            <label>Seperation: </label>
             <input
                 type="range"
                 min="0"
@@ -24,7 +24,7 @@
                 class="slider"
                 id="cohesionConstInput"
             />
-            <label>velMatch: </label>
+            <label>Alignment: </label>
             <input
                 type="range"
                 min="0"
@@ -33,6 +33,31 @@
                 class="slider"
                 id="velMatchConstInput"
             />
+            <label>Range: </label>
+            <input
+                type="range"
+                min="20"
+                max="300"
+                value="50"
+                class="slider"
+                id="rangeInput"
+            />
+            <label>MaxSpeed: </label>
+            <input
+                type="range"
+                min="0"
+                max="50"
+                value="5"
+                class="slider"
+                id="maxSpeedInput"
+            />
+        </div>
+        <div>
+            <button type="button" id="resetButton" onclick="resetGame()">
+                Reset
+            </button>
+            <button type="button" onclick="freeze()">Freeze</button>
+            <button type="button" onclick="unfreeze()">Unfreeze</button>
         </div>
         <script src="script.js"></script>
     </body>
