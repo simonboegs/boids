@@ -4,7 +4,36 @@
         <title>boids</title>
     </head>
     <body>
-        <canvas id="world" width="800" height="800"></canvas>
+        <canvas id="world" width="600" height="600"></canvas>
+        <div>
+            <label>Repel: </label>
+            <input
+                type="range"
+                min="0"
+                max="5"
+                value="2"
+                class="slider"
+                id="repelConstInput"
+            />
+            <label>Cohesion: </label>
+            <input
+                type="range"
+                min="0"
+                max="10"
+                value="1"
+                class="slider"
+                id="cohesionConstInput"
+            />
+            <label>velMatch: </label>
+            <input
+                type="range"
+                min="0"
+                max="10"
+                value="5"
+                class="slider"
+                id="velMatchConstInput"
+            />
+        </div>
         <script src="script.js"></script>
     </body>
 </html>

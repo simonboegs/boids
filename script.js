@@ -6,9 +6,14 @@ var frameRate = 60;
 
 async function update(state) {
     var range = 50;
-    var repelConst = 2;
-    var cohesionConst = 0.1;
-    var velMatchConst = 0.5;
+    // var repelConst = 2;
+    // var cohesionConst = 0.1;
+    // var velMatchConst = 0.5;
+    var repelConst = document.getElementById("repelConstInput").value;
+    var cohesionConst =
+        document.getElementById("cohesionConstInput").value / 10;
+    var velMatchConst =
+        document.getElementById("velMatchConstInput").value / 10;
     var border = 100;
     var minSpeed = 1;
     boids = state.boids;
