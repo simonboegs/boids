@@ -16,32 +16,56 @@ async function update(state) {
         document.getElementById("cohesionConstInput").value / 10;
     var velMatchConst =
         document.getElementById("velMatchConstInput").value / 10;
+    var alignmentConst = 0.1;
     var border = 100;
+    var proximity = 10;
+    var avoidSteerConst = 0.1;
     //var minSpeed = document.getElementById("minSpeedInput");
     var minSpeed = 1;
     var maxSpeed = document.getElementById("maxSpeedInput");
     boids = state.boids;
     await boids.forEach(async (boid) => {
         var localBoids = await getLocalBoids(boid, boids, range, angleOfSight);
-        var localObstacles = getLocalObstacles(boid, state.obstacles, range);
-        if (localObstacles.length > 0) {
-            var avoid = getAvoid(boid, localObstacles, avoidConst);
-            boid.vel[0] += avoid[0];
-            boid.vel[1] += avoid[1];
-        }
+        var localObstacles = getLocalObstacles(
+            boid,
+            state.obstacles,
+            range,
+            proximity
+        );
         if (localBoids.length > 0) {
             var repel = await getRepel(boid, localBoids, repelConst);
             var cohesion = await getCohesion(boid, localBoids, cohesionConst);
             var velMatch = await velocityMatch(boid, localBoids, velMatchConst);
+            var alignment = getAlignment(boid, localBoids, alignmentConst);
             boid.vel[0] += repel[0] + cohesion[0] + velMatch[0];
             boid.vel[1] += repel[1] + cohesion[1] + velMatch[1];
         }
-        boid.direction = getDirection(boid.vel);
+        if (localObstacles.length > 0) {
+            // var avoid = getAvoid(boid, localObstacles, proximity);
+            // boid.vel[0] += avoid[0];
+            // boid.vel[1] += avoid[1];
+            var avoidSteer = await getAvoidSteer(
+                boid,
+                localObstacles,
+                proximity,
+                avoidSteerConst
+            );
+            console.log(avoidSteer);
+            boid.vel[0] += avoidSteer[0];
+            boid.vel[1] += avoidSteer[1];
+        }
+        boid.vel = [
+            Math.round((boid.vel[0] + Number.EPSILON) * 100) / 100,
+            Math.round((boid.vel[1] + Number.EPSILON) * 100) / 100,
+        ];
+        if (!(boid.vel[0] == 0 && boid.vel[1] == 0))
+            boid.direction = getDirection(boid.vel);
         var velMag = distance([0, 0], boid.vel);
-        if (velMag < minSpeed)
-            boid.vel = convert(minSpeed, boid.direction, [0, 0]);
-        else if (velMag > maxSpeed)
-            boid.vel = convert(maxSpeed, boid.direction, [0, 0]);
+        // if (velMag < minSpeed)
+        //     boid.vel = convert(minSpeed, boid.direction, [0, 0]);
+        // else if (velMag > maxSpeed)
+        //     boid.vel = convert(maxSpeed, boid.direction, [0, 0]);
+        //boid.vel = [+boid.vel[0].toFixed(2), +boid.vel[1].toFixed(2)];
     });
 
     await boids.forEach((boid) => {
@@ -147,18 +171,32 @@ async function getLocalBoids(boid, boids, range, angleOfSight) {
     return localBoids;
 }
 
-function getLocalObstacles(boid, obstacles, range) {
+function getLocalObstacles(boid, obstacles, range, proximity) {
     var localObs = [];
     obstacles.forEach((obs) => {
-        var dist =
-            Math.sqrt(
-                Math.pow(boid.pos[0] - obs.pos[0], 2) +
-                    Math.pow(boid.pos[1] - obs.pos[1], 2)
-            ) - obs.radius;
+        // var dist =
+        //     Math.sqrt(
+        //         Math.pow(boid.pos[0] - obs.pos[0], 2) +
+        //             Math.pow(boid.pos[1] - obs.pos[1], 2)
+        //     ) - obs.radius;
+        var dist = distance(boid.pos, obs.pos) - obs.radius - proximity;
         if (dist < 0) state.boids.splice(state.boids.indexOf(boid), 1);
+        // if (dist <= range) {
+        //     localObs.push(obs);
+        //     console.log(dist);
+        // }
         if (dist <= range) {
-            localObs.push(obs);
-            console.log(dist);
+            var angleToObs = getAngle(boid.pos, obs.pos);
+            var littleAngle = Math.atan(
+                obs.radius + proximity / (dist + obs.radius + proximity)
+            );
+            if (
+                Math.min(angleToObs - littleAngle, angleToObs + littleAngle) <
+                    boid.direction &&
+                boid.direction <
+                    Math.max(angleToObs - littleAngle, angleToObs + littleAngle)
+            )
+                localObs.push(obs);
         }
     });
     return localObs;
@@ -190,16 +228,77 @@ function velocityMatch(boid, localBoids, velMatchConst) {
     return [diff[0] * velMatchConst, diff[1] * velMatchConst];
 }
 
-function getAvoid(boid, localObs, avoidConst) {
+function getAlignment(boid, localBoids, alignmentConst) {
+    var avgHeading = getAvgHeading(localBoids);
+    var diff = avgHeading - boid.direction;
+    var newDirection = boid.direction + diff * alignmentConst;
+    var velMag = magnitude(boid.vel);
+    var newVel = convert(velMag, newDirection, [0, 0]);
+    return [newVel[0] - boid.vel[0], newVel[1] - boid.vel[1]];
+}
+
+function getAvoid(boid, localObs, proximity) {
     var avoidX = 0;
     var avoidY = 0;
     localObs.forEach((obs) => {
-        var avoidForce =
-            avoidConst / (distance(boid.pos, obs.pos) - obs.radius);
-        var avoidDirection = getAngle(obs.pos, boid.pos);
-        var avoid = convert(avoidForce, avoidDirection, [0, 0]);
-        avoidX += avoid[0];
-        avoidY += avoid[1];
+        var velMag = magnitude(boid.vel);
+        console.log(
+            "absolute angle towards obs: " +
+                getAngle(boid.pos, obs.pos) / Math.PI +
+                " * pi"
+        );
+        var a = Math.abs(boid.direction - getAngle(boid.pos, obs.pos));
+        var x = velMag * Math.abs(Math.cos(a));
+        console.log("angle relative to direction: " + a / Math.PI + " * pi");
+        console.log("component magnitude: " + x);
+        var reverse = convert(x, getAngle(boid.pos, obs.pos), [0, 0]);
+        avoidX -= reverse[0];
+        avoidY -= reverse[1];
+    });
+    console.log("result: " + [avoidX, avoidY]);
+    return [avoidX, avoidY];
+}
+
+async function getAvoidSteer(boid, localObs, proximity, avoidSteerConst) {
+    var avoidX = 0;
+    var avoidY = 0;
+    await localObs.forEach((obs) => {
+        console.log("boid pos: " + boid.pos);
+        console.log("boid direction: " + degrees(boid.direction));
+        var r = obs.radius + proximity;
+        var d = distance(boid.pos, obs.pos);
+        var theta1 = Math.asin(r / d);
+        console.log("theta1: " + degrees(theta1));
+        if (isNaN(theta1)) return;
+        var theta2 = getAngle(boid.pos, obs.pos) - boid.direction;
+        if (Math.abs(theta2) % (0.5 * Math.PI) == 0) theta2 = 0;
+        console.log("theta2: " + degrees(theta2));
+        var angleToAvoid = theta1 - theta2;
+        console.log("angleToAvoid: " + degrees(angleToAvoid));
+        var tangentDist = Math.sqrt(Math.pow(d, 2) - Math.pow(r, 2));
+        var addOption = convert(
+            tangentDist,
+            boid.direction + angleToAvoid,
+            boid.pos
+        );
+        var subOption = convert(
+            tangentDist,
+            boid.direction - angleToAvoid,
+            boid.pos
+        );
+        if (
+            Math.abs(distance(addOption, obs.pos) - r) <
+            Math.abs(distance(subOption, obs.pos) - r)
+        )
+            var targetDirection = boid.direction + angleToAvoid;
+        else var targetDirection = boid.direction - angleToAvoid;
+        console.log("targetDirection: " + degrees(targetDirection));
+        var diff = targetDirection - boid.direction;
+        var newDirection = boid.direction + diff * avoidSteerConst;
+        var newVel = convert(magnitude(boid.vel), newDirection, [0, 0]);
+        //return [newVel[0] - boid.vel[0], newVel[1] - boid.vel[1]];
+        avoidX = avoidX + newVel[0] - boid.vel[0];
+        avoidY = avoidY + newVel[1] - boid.vel[1];
     });
     return [avoidX, avoidY];
 }
@@ -224,6 +323,13 @@ function getAvgVelocity(boids) {
     return [x / boids.length, y / boids.length];
 }
 
+function getAvgHeading(boids) {
+    var total = 0;
+    boids.forEach((b) => {
+        total += b.direction;
+    });
+    return total / boids.length;
+}
 function randomInt(min, max) {
     min = Math.ceil(min);
     max = Math.floor(max);
@@ -240,22 +346,29 @@ function distance(pos1, pos2) {
     );
 }
 
+function degrees(rad) {
+    return (rad * 180) / Math.PI;
+}
+
 function getAngle(pos1, pos2) {
-    var a = Math.atan(
-        Math.abs(pos1[1] - pos2[1]) / Math.abs(pos1[0] - pos2[0])
-    );
-    if (pos2[0] - pos1[0] >= 0) {
-        if (pos2[1] - pos1[1] >= 0) return a;
-        else return a + Math.PI * 1.5;
-    } else {
-        if (pos2[1] - pos1[1] >= 0) return a + Math.PI / 2;
-        else return a + Math.PI;
-    }
+    var x1 = pos1[0];
+    var x2 = pos2[0];
+    var y1 = pos1[1];
+    var y2 = pos2[1];
+    var a = Math.abs(Math.atan((y2 - y1) / (x2 - x1)));
+    if (x2 >= x1 && y2 >= y1) return a;
+    else if (x2 < x1 && y2 >= y1) return Math.PI - a;
+    else if (x2 <= x1 && y2 < y1) return Math.PI + a;
+    else if (x2 > x1 && y2 < y1) return 2 * Math.PI - a;
 }
 
 function getUnitVector(pos) {
     var magnitude = distance(pos, [0, 0]);
     return [pos[0] / magnitude, pos[1] / magnitude];
+}
+
+function magnitude(vector) {
+    return Math.sqrt(Math.pow(vector[0], 2) + Math.pow(vector[1], 2));
 }
 
 var game;
@@ -265,6 +378,7 @@ function startGame() {
     state = {};
     var boids = [];
     var obstacles = [createObstacle([200, 200], 50, "#ffff00")];
+    //var obstacles = [];
     numOfBoids = 200;
     var pos = [0, 0];
     var vel = [0, 0];
@@ -276,6 +390,10 @@ function startGame() {
         // vel = [0, -2];
         boids.push(createBoid(pos, vel, color));
     }
+    // var pos = [200, 0];
+    // var vel = [0, -1];
+    // var color = "#ffffff";
+    // boids.push(createBoid(pos, vel, color));
     state.boids = boids;
     state.obstacles = obstacles;
     running = true;
@@ -319,3 +437,22 @@ document.getElementById("world").addEventListener(
 );
 
 startGame();
+// var testList = [
+//     [1, 0],
+//     [1, 0.5],
+//     [1, 1],
+//     [0.5, 1],
+//     [0, 1],
+//     [-0.5, 1],
+//     [-1, 1],
+//     [-1, 0.5],
+//     [-1, 0],
+//     [-1, -0.5],
+//     [-1, -1],
+//     [-0.5, -1],
+//     [0, -1],
+//     [0.5, -1],
+//     [1, -1],
+//     [1, -0.5],
+// ];
+// testList.forEach((pos) => console.log(degrees(getAngle([0, 0], pos))));
