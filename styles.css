@@ -1,0 +1,33 @@
+.container {
+    width: 1020px;
+    border: solid;
+    overflow: auto;
+    margin: 50px;
+}
+
+#worldCanvas {
+    float: left;
+    width: 610px;
+}
+#world {
+    margin: 5px;
+}
+.adjustments {
+    float: right;
+    width: 410px;
+}
+.buttons {
+    padding-top: 10px;
+    padding-left: 10px;
+    padding-bottom: 5px;
+}
+.sliders {
+    padding-top: 5px;
+    padding-left: 10px;
+}
+.sliders label {
+    text-align: right;
+}
+.sliderInput {
+    padding-bottom: 5px;
+}

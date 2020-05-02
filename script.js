@@ -10,16 +10,19 @@ async function update(state) {
     // var repelConst = 2;
     // var cohesionConst = 0.1;
     // var velMatchConst = 0.5;
-    var repelConst = document.getElementById("repelConstInput").value;
+    var repelConst = document.getElementById("repelConstInput").value / 100;
+    var fearConst = 3;
     var avoidConst = 1;
     var cohesionConst =
-        document.getElementById("cohesionConstInput").value / 10;
+        document.getElementById("cohesionConstInput").value / 100;
     var velMatchConst =
-        document.getElementById("velMatchConstInput").value / 10;
+        document.getElementById("velMatchConstInput").value / 100;
     var alignmentConst = 0.1;
     var border = 100;
     var proximity = 10;
     var avoidSteerConst = 0.1;
+    var goalSeekConst =
+        document.getElementById("goalSeekConstInput").value / 100;
     //var minSpeed = document.getElementById("minSpeedInput");
     var minSpeed = 1;
     var maxSpeed = document.getElementById("maxSpeedInput");
@@ -32,6 +35,18 @@ async function update(state) {
             range,
             proximity
         );
+        var localPredators = getLocalPredators(boid, state.predators, range);
+
+        if (state.goalSeeking.bool) {
+            var goalSeek = getGoalSeek(
+                boid,
+                state.goalSeeking.pos,
+                goalSeekConst
+            );
+            boid.vel[0] += goalSeek[0];
+            boid.vel[1] += goalSeek[1];
+        }
+
         if (localBoids.length > 0) {
             var repel = await getRepel(boid, localBoids, repelConst);
             var cohesion = await getCohesion(boid, localBoids, cohesionConst);
@@ -39,6 +54,11 @@ async function update(state) {
             var alignment = getAlignment(boid, localBoids, alignmentConst);
             boid.vel[0] += repel[0] + cohesion[0] + velMatch[0];
             boid.vel[1] += repel[1] + cohesion[1] + velMatch[1];
+        }
+        if (localPredators.length > 0) {
+            var fear = await getRepel(boid, localPredators, fearConst);
+            boid.vel[0] += fear[0];
+            boid.vel[1] += fear[1];
         }
         if (localObstacles.length > 0) {
             // var avoid = getAvoid(boid, localObstacles, proximity);
@@ -67,17 +87,22 @@ async function update(state) {
         //     boid.vel = convert(maxSpeed, boid.direction, [0, 0]);
         //boid.vel = [+boid.vel[0].toFixed(2), +boid.vel[1].toFixed(2)];
     });
-
     await boids.forEach((boid) => {
         boid.pos[0] += boid.vel[0];
         boid.pos[1] += boid.vel[1];
 
-        if (boid.pos[0] < -border) boid.pos[0] += 2 * border + width;
-        else if (boid.pos[0] > width + border)
-            boid.pos[0] = boid.pos[0] - 2 * border - width;
-        if (boid.pos[1] < -border) boid.pos[1] += 2 * border + height;
-        else if (boid.pos[1] > height + border)
-            boid.pos[1] = boid.pos[1] - 2 * border - height;
+        boid.pos = checkPos(boid.pos, width, height, border);
+        // if (boid.pos[0] < -border) boid.pos[0] += 2 * border + width;
+        // else if (boid.pos[0] > width + border)
+        //     boid.pos[0] = boid.pos[0] - 2 * border - width;
+        // if (boid.pos[1] < -border) boid.pos[1] += 2 * border + height;
+        // else if (boid.pos[1] > height + border)
+        //     boid.pos[1] = boid.pos[1] - 2 * border - height;
+    });
+    state.predators.forEach((pred) => {
+        pred.pos[0] += pred.vel[0];
+        pred.pos[1] += pred.vel[1];
+        pred.pos = checkPos(pred.pos, width, height, border);
     });
     return state;
 }
@@ -100,6 +125,17 @@ async function render(state) {
         ctx.closePath();
         ctx.lineWidth = 1;
         ctx.strokeStyle = boid.color;
+        ctx.stroke();
+    });
+    state.predators.forEach(async (pred) => {
+        var triCords = await getTriCords(pred);
+        ctx.beginPath();
+        ctx.moveTo(Math.round(triCords[0][0]), Math.round(triCords[0][1]));
+        ctx.lineTo(Math.round(triCords[1][0]), Math.round(triCords[1][1]));
+        ctx.lineTo(Math.round(triCords[2][0]), Math.round(triCords[2][1]));
+        ctx.closePath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = pred.color;
         ctx.stroke();
     });
 }
@@ -128,6 +164,17 @@ function checkAngle(angle) {
     return angle;
 }
 
+function checkPos(pos, width, height, border) {
+    newPos = [pos[0], pos[1]];
+    if (pos[0] < -border) newPos[0] += 2 * border + width;
+    else if (pos[0] > width + border)
+        newPos[0] = newPos[0] - 2 * border - width;
+    if (pos[1] < -border) newPos[1] += 2 * border + height;
+    else if (pos[1] > height + border)
+        newPos[1] = newPos[1] - 2 * border - height;
+    return newPos;
+}
+
 function createBoid(pos, vel, color) {
     const obj = {};
     obj.pos = pos;
@@ -144,6 +191,17 @@ function createObstacle(pos, radius, color) {
     obj.pos = pos;
     obj.radius = radius;
     obj.color = color;
+    return obj;
+}
+
+function createPredator(pos, vel, color) {
+    const obj = {};
+    obj.pos = pos;
+    obj.vel = vel;
+    obj.color = color;
+    obj.width = 10;
+    obj.height = 20;
+    obj.direction = getDirection(vel);
     return obj;
 }
 
@@ -202,6 +260,14 @@ function getLocalObstacles(boid, obstacles, range, proximity) {
     return localObs;
 }
 
+function getLocalPredators(boid, predators, range) {
+    localPreds = [];
+    predators.forEach((pred) => {
+        if (distance(boid.pos, pred.pos) <= range + 100) localPreds.push(pred);
+    });
+    return localPreds;
+}
+
 async function getRepel(boid, localBoids, repelConst) {
     var repelX = 0;
     var repelY = 0;
@@ -236,6 +302,14 @@ function getAlignment(boid, localBoids, alignmentConst) {
     var newVel = convert(velMag, newDirection, [0, 0]);
     return [newVel[0] - boid.vel[0], newVel[1] - boid.vel[1]];
 }
+
+// function getFear(boid, localPredators, fearConst) {
+//     var fearX = 0;
+//     var fearY = 0;
+//     await localPredators.forEach((pred) => {
+//         var fearForce =
+//     })
+// }
 
 function getAvoid(boid, localObs, proximity) {
     var avoidX = 0;
@@ -301,6 +375,11 @@ async function getAvoidSteer(boid, localObs, proximity, avoidSteerConst) {
         avoidY = avoidY + newVel[1] - boid.vel[1];
     });
     return [avoidX, avoidY];
+}
+
+function getGoalSeek(boid, goalPos, goalSeekConst) {
+    var angle = getAngle(boid.pos, goalPos);
+    return convert(goalSeekConst, angle, [0, 0]);
 }
 
 function getAvgPosition(boids) {
@@ -377,7 +456,13 @@ var running;
 function startGame() {
     state = {};
     var boids = [];
-    var obstacles = [createObstacle([200, 200], 50, "#ffff00")];
+    state.obstacles = [];
+    state.predators = [];
+    state.goalSeeking = {};
+    state.goalSeeking.bool = false;
+    state.goalSeeking.pos = [0, 0];
+    //state.obstacles = [createObstacle([200, 200], 50, "#ffff00")];
+    //state.predators = [createPredator([200, 200], [2, 0], "#ff0000")];
     //var obstacles = [];
     numOfBoids = 200;
     var pos = [0, 0];
@@ -395,7 +480,6 @@ function startGame() {
     // var color = "#ffffff";
     // boids.push(createBoid(pos, vel, color));
     state.boids = boids;
-    state.obstacles = obstacles;
     running = true;
     game = setInterval(async function () {
         state = await update(state);
@@ -408,20 +492,35 @@ function resetGame() {
     startGame();
 }
 
-function freeze() {
+document.addEventListener("keypress", function (event) {
+    if (event.keyCode == 32) {
+        handleFreeze();
+    }
+});
+
+function handleFreeze() {
     if (running) {
         clearInterval(game);
         running = false;
-    }
-}
-
-function unfreeze() {
-    if (!running) {
+        document.getElementById("freezeButton").innerHTML = "Unfreeze (space)";
+    } else {
         running = true;
         game = setInterval(async function () {
             state = await update(state);
             render(state);
         }, 1000 / frameRate);
+        document.getElementById("freezeButton").innerHTML = "Freeze (space)";
+    }
+}
+
+function handleGoalSeeking() {
+    if (state.goalSeeking.bool) {
+        state.goalSeeking.bool = false;
+        document.getElementById("goalSeekButton").innerHTML = "Seek mouse";
+    } else {
+        state.goalSeeking.bool = true;
+        document.getElementById("goalSeekButton").innerHTML =
+            "Stop seeking mouse";
     }
 }
 
@@ -435,6 +534,12 @@ document.getElementById("world").addEventListener(
     },
     false
 );
+
+document
+    .getElementById("world")
+    .addEventListener("mousemove", function (event) {
+        state.goalSeeking.pos = [event.pageX, event.pageY];
+    });
 
 startGame();
 // var testList = [

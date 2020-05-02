@@ -1,63 +1,105 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>boids</title>
+        <link rel="stylesheet" href="styles.css" />
     </head>
     <body>
-        <canvas id="world" width="600" height="600"></canvas>
-        <div>
-            <label>Seperation: </label>
-            <input
-                type="range"
-                min="0"
-                max="5"
-                value="2"
-                class="slider"
-                id="repelConstInput"
-            />
-            <label>Cohesion: </label>
-            <input
-                type="range"
-                min="0"
-                max="10"
-                value="1"
-                class="slider"
-                id="cohesionConstInput"
-            />
-            <label>Alignment: </label>
-            <input
-                type="range"
-                min="0"
-                max="10"
-                value="5"
-                class="slider"
-                id="velMatchConstInput"
-            />
-            <label>Range: </label>
-            <input
-                type="range"
-                min="20"
-                max="300"
-                value="50"
-                class="slider"
-                id="rangeInput"
-            />
-            <label>MaxSpeed: </label>
-            <input
-                type="range"
-                min="0"
-                max="50"
-                value="5"
-                class="slider"
-                id="maxSpeedInput"
-            />
-        </div>
-        <div>
-            <button type="button" id="resetButton" onclick="resetGame()">
-                Reset
-            </button>
-            <button type="button" onclick="freeze()">Freeze</button>
-            <button type="button" onclick="unfreeze()">Unfreeze</button>
+        <div class="container">
+            <div id="worldCanvas">
+                <canvas id="world" width="600" height="600"></canvas>
+            </div>
+            <div class="adjustments">
+                <div class="buttons">
+                    <button
+                        type="button"
+                        id="resetButton"
+                        onclick="resetGame()"
+                    >
+                        Reset
+                    </button>
+                    <button
+                        type="button"
+                        id="freezeButton"
+                        onclick="handleFreeze()"
+                    >
+                        Freeze
+                    </button>
+                    <button
+                        type="button"
+                        id="goalSeekButton"
+                        onclick="handleGoalSeeking()"
+                    >
+                        Seek mouse
+                    </button>
+                </div>
+                <div class="sliders">
+                    <div class="sliderInput">
+                        <label>Seperation: </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="500"
+                            value="200"
+                            class="slider"
+                            id="repelConstInput"
+                            oninput="seperationOutput.value = repelConstInput.value / 100"
+                        />
+                        <output id="seperationOutput">2.00</output>
+                    </div>
+                    <div class="sliderInput">
+                        <label>Cohesion: </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value="10"
+                            class="slider"
+                            id="cohesionConstInput"
+                            oninput="cohesionOutput.value = cohesionConstInput.value / 100"
+                        />
+                        <output id="cohesionOutput">0.10</output>
+                    </div>
+                    <div class="sliderInput">
+                        <label>Alignment: </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value="50"
+                            class="slider"
+                            id="velMatchConstInput"
+                            oninput="alignmentOutput.value = velMatchConstInput.value / 100"
+                        />
+                        <output id="alignmentOutput">0.50</output>
+                    </div>
+                    <div class="sliderInput">
+                        <label>Range: </label>
+                        <input
+                            type="range"
+                            min="20"
+                            max="300"
+                            value="50"
+                            class="slider"
+                            id="rangeInput"
+                            oninput="rangeOutput.value = rangeInput.value"
+                        />
+                        <output id="rangeOutput">50</output>
+                    </div>
+                    <div class="sliderInput">
+                        <label>Goal Seeking: </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value="10"
+                            class="slider"
+                            id="goalSeekConstInput"
+                            oninput="goalSeekOutput.value = goalSeekConstInput.value / 100"
+                        />
+                        <output id="goalSeekOutput">0.10</output>
+                    </div>
+                </div>
+            </div>
         </div>
         <script src="script.js"></script>
     </body>
