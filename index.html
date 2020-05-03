@@ -14,27 +14,30 @@
                         type="button"
                         id="resetButton"
                         onclick="resetGame()"
+                        tabindex="-1"
                     >
-                        Reset
+                        Reset (r)
                     </button>
                     <button
                         type="button"
                         id="freezeButton"
                         onclick="handleFreeze()"
+                        tabindex="-1"
                     >
-                        Freeze
+                        Freeze (space)
                     </button>
                     <button
                         type="button"
                         id="goalSeekButton"
                         onclick="handleGoalSeeking()"
+                        tabindex="-1"
                     >
-                        Seek mouse
+                        Seek mouse (s)
                     </button>
                 </div>
                 <div class="sliders">
                     <div class="sliderInput">
-                        <label>Seperation: </label>
+                        <label class="sliderLabel">Seperation: </label>
                         <input
                             type="range"
                             min="0"
@@ -47,7 +50,7 @@
                         <output id="seperationOutput">2.00</output>
                     </div>
                     <div class="sliderInput">
-                        <label>Cohesion: </label>
+                        <label class="sliderLabel">Cohesion: </label>
                         <input
                             type="range"
                             min="0"
@@ -60,7 +63,7 @@
                         <output id="cohesionOutput">0.10</output>
                     </div>
                     <div class="sliderInput">
-                        <label>Alignment: </label>
+                        <label class="sliderLabel">Alignment: </label>
                         <input
                             type="range"
                             min="0"
@@ -73,7 +76,7 @@
                         <output id="alignmentOutput">0.50</output>
                     </div>
                     <div class="sliderInput">
-                        <label>Range: </label>
+                        <label class="sliderLabel">Range: </label>
                         <input
                             type="range"
                             min="20"
@@ -86,7 +89,7 @@
                         <output id="rangeOutput">50</output>
                     </div>
                     <div class="sliderInput">
-                        <label>Goal Seeking: </label>
+                        <label class="sliderLabel">Goal Seeking: </label>
                         <input
                             type="range"
                             min="0"

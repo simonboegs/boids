@@ -31,3 +31,6 @@
 .sliderInput {
     padding-bottom: 5px;
 }
+.sliderLabel {
+    width: 100px;
+}

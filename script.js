@@ -488,17 +488,19 @@ function startGame() {
 }
 
 function resetGame() {
+    document.getElementById("resetButton").blur();
     clearInterval(game);
     startGame();
 }
 
 document.addEventListener("keypress", function (event) {
-    if (event.keyCode == 32) {
-        handleFreeze();
-    }
+    if (event.keyCode == 32) handleFreeze();
+    else if (event.keyCode == 115) handleGoalSeeking();
+    else if (event.keyCode == 114) resetGame();
 });
 
 function handleFreeze() {
+    document.getElementById("freezeButton").blur();
     if (running) {
         clearInterval(game);
         running = false;
@@ -514,20 +516,21 @@ function handleFreeze() {
 }
 
 function handleGoalSeeking() {
+    document.getElementById("goalSeekButton").blur();
     if (state.goalSeeking.bool) {
         state.goalSeeking.bool = false;
-        document.getElementById("goalSeekButton").innerHTML = "Seek mouse";
+        document.getElementById("goalSeekButton").innerHTML = "Seek mouse (s)";
     } else {
         state.goalSeeking.bool = true;
         document.getElementById("goalSeekButton").innerHTML =
-            "Stop seeking mouse";
+            "Stop seeking mouse (s)";
     }
 }
 
 document.getElementById("world").addEventListener(
     "click",
     function (event) {
-        var pos = [event.pageX, event.pageY];
+        var pos = [event.offsetX, event.offsetY];
         var vel = [randomDec(-1, 1), randomDec(-1, 1)];
         var color = "#ff8585";
         state.boids.push(createBoid(pos, vel, color));
@@ -538,7 +541,7 @@ document.getElementById("world").addEventListener(
 document
     .getElementById("world")
     .addEventListener("mousemove", function (event) {
-        state.goalSeeking.pos = [event.pageX, event.pageY];
+        state.goalSeeking.pos = [event.offsetX, event.offsetY];
     });
 
 startGame();
