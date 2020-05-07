@@ -24,7 +24,7 @@ async function update(state) {
     var goalSeekConst =
         document.getElementById("goalSeekConstInput").value / 100;
     //var minSpeed = document.getElementById("minSpeedInput");
-    var minSpeed = 1;
+    var minSpeed = document.getElementById("minSpeedInput").value / 100;
     var maxSpeed = document.getElementById("maxSpeedInput");
     boids = state.boids;
     await boids.forEach(async (boid) => {
@@ -35,7 +35,7 @@ async function update(state) {
             range,
             proximity
         );
-        var localPredators = getLocalPredators(boid, state.predators, range);
+        // var localPredators = getLocalPredators(boid, state.predators, range);
 
         if (state.goalSeeking.bool) {
             var goalSeek = getGoalSeek(
@@ -55,11 +55,11 @@ async function update(state) {
             boid.vel[0] += repel[0] + cohesion[0] + velMatch[0];
             boid.vel[1] += repel[1] + cohesion[1] + velMatch[1];
         }
-        if (localPredators.length > 0) {
-            var fear = await getRepel(boid, localPredators, fearConst);
-            boid.vel[0] += fear[0];
-            boid.vel[1] += fear[1];
-        }
+        // if (localPredators.length > 0) {
+        //     var fear = await getRepel(boid, localPredators, fearConst);
+        //     boid.vel[0] += fear[0];
+        //     boid.vel[1] += fear[1];
+        // }
         if (localObstacles.length > 0) {
             // var avoid = getAvoid(boid, localObstacles, proximity);
             // boid.vel[0] += avoid[0];
@@ -81,12 +81,13 @@ async function update(state) {
         if (!(boid.vel[0] == 0 && boid.vel[1] == 0))
             boid.direction = getDirection(boid.vel);
         var velMag = distance([0, 0], boid.vel);
-        // if (velMag < minSpeed)
-        //     boid.vel = convert(minSpeed, boid.direction, [0, 0]);
+        if (velMag < minSpeed)
+            boid.vel = convert(minSpeed, boid.direction, [0, 0]);
         // else if (velMag > maxSpeed)
         //     boid.vel = convert(maxSpeed, boid.direction, [0, 0]);
         //boid.vel = [+boid.vel[0].toFixed(2), +boid.vel[1].toFixed(2)];
     });
+    //await predators.forEach((pred) => {});
     await boids.forEach((boid) => {
         boid.pos[0] += boid.vel[0];
         boid.pos[1] += boid.vel[1];
@@ -180,8 +181,8 @@ function createBoid(pos, vel, color) {
     obj.pos = pos;
     obj.vel = vel;
     obj.color = color;
-    obj.width = 5;
-    obj.height = 10;
+    obj.width = 3;
+    obj.height = 6;
     obj.direction = getDirection(vel);
     return obj;
 }
@@ -461,10 +462,10 @@ function startGame() {
     state.goalSeeking = {};
     state.goalSeeking.bool = false;
     state.goalSeeking.pos = [0, 0];
-    //state.obstacles = [createObstacle([200, 200], 50, "#ffff00")];
+    //state.obstacles = [createObstacle([300, 300], 50, "#ffff00")];
     //state.predators = [createPredator([200, 200], [2, 0], "#ff0000")];
     //var obstacles = [];
-    numOfBoids = 200;
+    numOfBoids = 1000;
     var pos = [0, 0];
     var vel = [0, 0];
     var color = "#ffffff";
