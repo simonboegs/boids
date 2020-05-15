@@ -304,14 +304,6 @@ function getAlignment(boid, localBoids, alignmentConst) {
     return [newVel[0] - boid.vel[0], newVel[1] - boid.vel[1]];
 }
 
-// function getFear(boid, localPredators, fearConst) {
-//     var fearX = 0;
-//     var fearY = 0;
-//     await localPredators.forEach((pred) => {
-//         var fearForce =
-//     })
-// }
-
 function getAvoid(boid, localObs, proximity) {
     var avoidX = 0;
     var avoidY = 0;
@@ -383,6 +375,10 @@ function getGoalSeek(boid, goalPos, goalSeekConst) {
     return convert(goalSeekConst, angle, [0, 0]);
 }
 
+//
+//UTILITY METHODS
+//
+
 function getAvgPosition(boids) {
     var x = 0;
     var y = 0;
@@ -411,6 +407,7 @@ function getAvgHeading(boids) {
     return total / boids.length;
 }
 function randomInt(min, max) {
+    //include min, exclude max
     min = Math.ceil(min);
     max = Math.floor(max);
     return Math.floor(Math.random() * (max - min)) + min;
@@ -451,6 +448,9 @@ function magnitude(vector) {
     return Math.sqrt(Math.pow(vector[0], 2) + Math.pow(vector[1], 2));
 }
 
+//
+//INIT GAME METHODS
+//
 var game;
 var state = {};
 var running;
@@ -494,12 +494,6 @@ function resetGame() {
     startGame();
 }
 
-document.addEventListener("keypress", function (event) {
-    if (event.keyCode == 32) handleFreeze();
-    else if (event.keyCode == 115) handleGoalSeeking();
-    else if (event.keyCode == 114) resetGame();
-});
-
 function handleFreeze() {
     document.getElementById("freezeButton").blur();
     if (running) {
@@ -528,40 +522,189 @@ function handleGoalSeeking() {
     }
 }
 
-document.getElementById("world").addEventListener(
-    "click",
-    function (event) {
-        var pos = [event.offsetX, event.offsetY];
-        var vel = [randomDec(-1, 1), randomDec(-1, 1)];
-        var color = "#ff8585";
-        state.boids.push(createBoid(pos, vel, color));
-    },
-    false
-);
+//
+//LISTENERS
+//
 
-document
-    .getElementById("world")
-    .addEventListener("mousemove", function (event) {
-        state.goalSeeking.pos = [event.offsetX, event.offsetY];
-    });
+// document.addEventListener("keypress", function (event) {
+//     if (event.keyCode == 32) handleFreeze();
+//     else if (event.keyCode == 115) handleGoalSeeking();
+//     else if (event.keyCode == 114) resetGame();
+// });
+
+// document.getElementById("world").addEventListener(
+//     "click",
+//     function (event) {
+//         var pos = [event.offsetX, event.offsetY];
+//         var vel = [randomDec(-1, 1), randomDec(-1, 1)];
+//         var color = "#ff8585";
+//         state.boids.push(createBoid(pos, vel, color));
+//     },
+//     false
+// );
+
+// document
+//     .getElementById("world")
+//     .addEventListener("mousemove", function (event) {
+//         state.goalSeeking.pos = [event.offsetX, event.offsetY];
+//     });
 
 startGame();
-// var testList = [
-//     [1, 0],
-//     [1, 0.5],
-//     [1, 1],
-//     [0.5, 1],
-//     [0, 1],
-//     [-0.5, 1],
-//     [-1, 1],
-//     [-1, 0.5],
-//     [-1, 0],
-//     [-1, -0.5],
-//     [-1, -1],
-//     [-0.5, -1],
-//     [0, -1],
-//     [0.5, -1],
-//     [1, -1],
-//     [1, -0.5],
-// ];
-// testList.forEach((pos) => console.log(degrees(getAngle([0, 0], pos))));
+
+async function kmeans(k, positions, colors) {
+    var groups = Array(k).fill({});
+    console.log(groups);
+    var randomIndexes = [];
+    //random initialization of centroids
+    var i = 0;
+    while (i < k) {
+        var randomIndex = randomInt(0, positions.length);
+        if (randomIndexes.includes(randomIndex)) {
+            continue;
+        }
+        groups[i].centroid = positions[randomIndex];
+        groups[i].positions = [];
+        groups[i].color = colors[randomInt(0, colors.length)];
+        randomIndexes.push(randomIndex);
+        i++;
+    }
+    console.log(groups);
+    var converged = false;
+    while (!converged) {
+        //reset groups
+        groups.forEach((group) => {
+            group.positions = [];
+        });
+        //put positions in groups
+        positions.forEach((pos) => {
+            var minDist = Infinity;
+            var minIndex = 0;
+            for (var i = 0; i < k; i++) {
+                var dist = distance(pos, groups[i].centroid);
+                if (dist < minDist) {
+                    minDist = dist;
+                    minIndex = i;
+                }
+            }
+            groups[minIndex].positions.push(pos);
+            console.log(pos + " added to group " + minIndex);
+        });
+        converged = true;
+        //move centroids to avg positions
+        groups.forEach((group) => {
+            var x = 0;
+            var y = 0;
+            group.positions.forEach((pos) => {
+                x += pos[0];
+                y += pos[1];
+            });
+            var avgPos = [
+                x / group.positions.length,
+                y / group.positions.length,
+            ];
+            if (converged)
+                if (
+                    !(
+                        Math.abs(group.centroid[0] - avgPos[0]) < 0.01 &&
+                        Math.abs(group.centroid[1] - avgPos[1]) < 0.01
+                    )
+                )
+                    converged = false;
+            group.centroid = avgPos;
+            console.log(group);
+        });
+    }
+    return groups;
+}
+
+async function kmeans2(k, points, colors) {
+    //random init
+    var groups = Array(k).fill({});
+    var randomIndexes = [];
+    for (var i = 0; i < k; i++) {
+        var randomIndex = await randomInt(0, points.length);
+        if (randomIndexes.includes(randomIndex)) {
+            i--;
+            continue;
+        }
+        groups[i].centroid = points[randomIndex];
+        groups[i].positions = [];
+        groups[i].color = colors[await randomInt(0, colors.length)];
+        randomIndexes.push(randomIndex);
+    }
+    await console.log(groups);
+    //while not converged
+    var p = 0;
+    while (p < 1000) {
+        //add points to groups
+        for (var i = 0; i < points.length; i++) {
+            var minDist = Infinity;
+            var minIndex = 0;
+            for (var j = 0; j < k; j++) {
+                var dist = await distance(points[i], groups[j].centroid);
+                if (dist < minDist) {
+                    minDist = dist;
+                    minIndex = j;
+                }
+            }
+            await groups[minIndex].positions.push(points[i]);
+        }
+        //move centroids
+        for (var i = 0; i < k; i++) {
+            var x = 0;
+            var y = 0;
+            for (var j = 0; j < groups[i].positions.length; j++) {
+                x += groups[i].positions[j][0];
+                y += groups[i].positions[j][1];
+            }
+            var avgPos = await [
+                x / groups[i].positions.length,
+                y / groups[i].positions.length,
+            ];
+            groups[i].centroid = avgPos;
+        }
+        await console.log(groups);
+        await p++;
+    }
+}
+
+var colors = [
+    "#FFFFFF",
+    "#C0C0C0",
+    "#808080",
+    "#FF0000",
+    "#800000",
+    "#FFFF00",
+    "#808000",
+    "#00FF00",
+    "#008000",
+    "#00FFFF",
+    "#008080",
+    "#0000FF",
+    "#000080",
+    "#FF00FF",
+    "#800080",
+];
+
+var positions = [
+    [0, 0],
+    [0, 1],
+    [0, 2],
+    [1, 0],
+    [1, 1],
+    [1, 2],
+    [2, 0],
+    [2, 1],
+    [2, 2],
+    [6, 4],
+    [6, 5],
+    [6, 6],
+    [7, 4],
+    [7, 5],
+    [7, 6],
+    [8, 4],
+    [8, 5],
+    [8, 6],
+];
+
+//kmeans2(2, positions, colors);
